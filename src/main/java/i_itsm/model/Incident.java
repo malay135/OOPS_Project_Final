@@ -8,6 +8,8 @@ import java.time.LocalDateTime;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.FetchType;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 
 @Entity
 public class Incident {
@@ -15,13 +17,22 @@ public class Incident {
 	@Id
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
 	private Long id;
+    @NotBlank(message = "Title is required")
+    @Size(max = 200, message = "Title must not exceed 200 characters")
     private String title;
+    @NotBlank(message = "Description is required")
+    @Size(max = 2000, message = "Description must not exceed 2000 characters")
     private String description;
+    @NotBlank(message = "Category is required")
     private String category;
     private String priority;
     private String status;
+    @NotBlank(message = "Impact is required")
     private String impact;
+    @NotBlank(message = "Urgency is required")
     private String urgency;
+    @NotBlank(message = "Business criticality is required")
+    private String businessCriticality;
     private LocalDateTime createdAt;
     private LocalDateTime resolvedAt;
     private LocalDateTime slaDeadline;
@@ -97,6 +108,14 @@ public class Incident {
 
     public void setUrgency(String urgency) {
         this.urgency = urgency;
+    }
+
+    public String getBusinessCriticality() {
+        return businessCriticality;
+    }
+
+    public void setBusinessCriticality(String businessCriticality) {
+        this.businessCriticality = businessCriticality;
     }
 
     public LocalDateTime getCreatedAt() {

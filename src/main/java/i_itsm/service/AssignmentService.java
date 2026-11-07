@@ -13,6 +13,8 @@ import i_itsm.strategy.AssignmentStrategy;
 import i_itsm.strategy.LeastLoadedAssignment;
 import i_itsm.strategy.SkillBasedAssignment;
 import org.springframework.transaction.annotation.Transactional;
+import i_itsm.exception.IncidentAssignmentException;
+import i_itsm.exception.InvalidIncidentException;
 
 @Service
 public class AssignmentService {
@@ -50,7 +52,7 @@ public class AssignmentService {
         
         if ("RESOLVED".equals(incident.getStatus())
                 || "CLOSED".equals(incident.getStatus())) {
-            throw new IllegalStateException(
+            throw new IncidentAssignmentException(
                     "Cannot assign a resolved or closed incident");
 }
 
@@ -64,7 +66,7 @@ public class AssignmentService {
         } else if ("LEAST_LOADED".equalsIgnoreCase(strategy)) {
             assignmentStrategy = leastLoadedAssignment;
         } else {
-            throw new IllegalArgumentException(
+            throw new InvalidIncidentException(
                     "Unknown assignment strategy: " + strategy);
         }
 
@@ -72,7 +74,7 @@ public class AssignmentService {
                 incident, technicians);
 
         if (assigned == null) {
-            throw new IllegalStateException(
+            throw new IncidentAssignmentException(
                     "No suitable technician found");
         }
 

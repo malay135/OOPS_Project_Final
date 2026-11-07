@@ -37,9 +37,12 @@ public class IncidentService {
 
     public Incident createIncident(Incident incident) {
     	incident.setPriority(
-    			priorityService.calculatePriority(
-    					incident.getImpact(),
-    					incident.getUrgency()));
+    		priorityService.calculatePriority(
+        		incident.getImpact(),
+        		incident.getUrgency(),
+        		incident.getBusinessCriticality()
+    		)
+		);
 
     	incident.setStatus("OPEN");
     	incident.setCreatedAt(java.time.LocalDateTime.now());

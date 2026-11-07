@@ -15,6 +15,8 @@ import org.springframework.web.bind.annotation.RequestParam;
 import i_itsm.model.Incident;
 import i_itsm.service.IncidentService;
 
+import jakarta.validation.Valid;
+
 @RestController
 @RequestMapping("/api/incidents")
 public class IncidentController {
@@ -50,7 +52,7 @@ public class IncidentController {
     }
 
     @PostMapping
-    public Incident createIncident(@RequestBody Incident incident) {
+    public Incident createIncident(@Valid @RequestBody Incident incident) {
         return incidentService.createIncident(incident);
     }
     

@@ -1,4 +1,3 @@
-
 package i_itsm.notification;
 
 import java.util.List;
@@ -12,17 +11,14 @@ import i_itsm.repository.NotificationRepository;
 public class NotificationService {
 
     private final NotificationRepository notificationRepository;
-    private final InAppNotificationSender inAppSender;
-    private final SimulatedEmailNotificationSender emailSender;
+    private final NotificationSenderFactory senderFactory;
 
     public NotificationService(
             NotificationRepository notificationRepository,
-            InAppNotificationSender inAppSender,
-            SimulatedEmailNotificationSender emailSender) {
+            NotificationSenderFactory senderFactory) {
 
         this.notificationRepository = notificationRepository;
-        this.inAppSender = inAppSender;
-        this.emailSender = emailSender;
+        this.senderFactory = senderFactory;
     }
 
     public Notification sendNotification(
@@ -34,16 +30,10 @@ public class NotificationService {
         Notification saved =
                 notificationRepository.save(notification);
 
-        if ("IN_APP".equalsIgnoreCase(channel)) {
-            inAppSender.send(saved);
-        }
-        else if ("EMAIL".equalsIgnoreCase(channel)) {
-            emailSender.send(saved);
-        }
-        else {
-            throw new IllegalArgumentException(
-                    "Unsupported notification channel: " + channel);
-        }
+        NotificationSender sender =
+                senderFactory.getSender(channel);
+
+        sender.send(saved);
 
         return saved;
     }
