@@ -52,7 +52,7 @@ public class NotificationService {
         Notification notification = notificationRepository
                 .findById(notificationId)
                 .orElseThrow(() ->
-                    new RuntimeException("Notification not found"));
+                       new IllegalArgumentException("Notification not found: " + notificationId));
 
         notification.setRead(true);
 

@@ -120,7 +120,17 @@ public class IncidentService {
         		technicianRepository.save(technician);
     		}
 		}
-
+           // Reopening a resolved/closed incident makes it active again
+           boolean wasDone = "RESOLVED".equals(oldStatus) || "CLOSED".equals(oldStatus);
+           boolean nowDone = status.equals("RESOLVED") || status.equals("CLOSED");
+           if (wasDone && !nowDone) {
+               incident.setResolvedAt(null);
+               if (incident.getAssignedTechnician() != null) {
+                   var technician = incident.getAssignedTechnician();
+                   technician.setActiveIncidentCount(technician.getActiveIncidentCount() + 1);
+                   technicianRepository.save(technician);
+               }
+           }
     	Incident savedIncident = incidentRepository.save(incident);
 
     	auditService.recordAction(
