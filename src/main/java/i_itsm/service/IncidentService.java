@@ -2,11 +2,13 @@ package i_itsm.service;
 
 import java.util.List;
 
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
 import i_itsm.model.Incident;
+import i_itsm.model.Technician;
 import i_itsm.model.User;
 import i_itsm.repository.IncidentRepository;
 import i_itsm.repository.UserRepository;
@@ -47,6 +49,30 @@ public class IncidentService {
         return auth != null ? auth.getName() : "system";
     }
 
+    private boolean currentUserHasRole(String role) {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        return auth != null && auth.getAuthorities().stream()
+                .anyMatch(a -> ("ROLE_" + role).equals(a.getAuthority()));
+    }
+
+    // A technician may only update incidents assigned to them; administrators may update any incident
+    private void checkCanUpdate(Incident incident) {
+        if (!currentUserHasRole("TECHNICIAN")) {
+            return;
+        }
+        Technician me = technicianRepository.findByUsername(currentUsername())
+                .orElseThrow(() -> new AccessDeniedException(
+                        "Your login is not linked to a technician. Ask an administrator to link it on the Technicians page."));
+        Technician assigned = incident.getAssignedTechnician();
+        if (assigned == null || !assigned.getId().equals(me.getId())) {
+            throw new AccessDeniedException("You can only update incidents assigned to you");
+        }
+    }
+
+    private static String shorten(String text, int max) {
+        return text.length() <= max ? text : text.substring(0, max - 3) + "...";
+    }
+
     private User currentUser() {
         String username = currentUsername();
         return userRepository.findByUsername(username).orElse(null);
@@ -63,6 +89,7 @@ public class IncidentService {
 
     	incident.setStatus("OPEN");
     	incident.setCreatedAt(java.time.LocalDateTime.now());
+    	incident.setResolutionNotes(null);
 
     	// Set the reporter
     	User reporter = currentUser();
@@ -111,6 +138,10 @@ public class IncidentService {
     
     
     public Incident updateStatus(Long id, String newStatus) {
+        return updateStatus(id, newStatus, null);
+    }
+
+    public Incident updateStatus(Long id, String newStatus, String notes) {
     	Incident incident = getIncidentById(id);
 
     	if (newStatus == null) {
@@ -125,7 +156,20 @@ public class IncidentService {
     		throw new IllegalArgumentException("Invalid incident status");
     	}
 
+    	checkCanUpdate(incident);
+
     	String oldStatus = incident.getStatus();
+        boolean wasDone = "RESOLVED".equals(oldStatus) || "CLOSED".equals(oldStatus);
+        boolean nowDone = status.equals("RESOLVED") || status.equals("CLOSED");
+
+        // Resolving needs notes on what was done
+        String cleanNotes = notes == null ? "" : notes.trim();
+        if (status.equals("RESOLVED") && !wasDone && cleanNotes.isEmpty()) {
+            throw new IllegalArgumentException("Resolution notes are required to resolve an incident");
+        }
+        if (cleanNotes.length() > 2000) {
+            throw new IllegalArgumentException("Resolution notes must not exceed 2000 characters");
+        }
 
     	incident.setStatus(status);
 
@@ -144,11 +188,14 @@ public class IncidentService {
     	    }
 		}
 
+        if (nowDone && !cleanNotes.isEmpty()) {
+            incident.setResolutionNotes(cleanNotes);
+        }
+
         // Reopening a resolved/closed incident makes it active again
-        boolean wasDone = "RESOLVED".equals(oldStatus) || "CLOSED".equals(oldStatus);
-        boolean nowDone = status.equals("RESOLVED") || status.equals("CLOSED");
         if (wasDone && !nowDone) {
             incident.setResolvedAt(null);
+            incident.setResolutionNotes(null); // the old notes stay in the audit log
             if (incident.getAssignedTechnician() != null) {
                 var technician = incident.getAssignedTechnician();
                 technician.setActiveIncidentCount(technician.getActiveIncidentCount() + 1);
@@ -161,7 +208,8 @@ public class IncidentService {
     	auditService.recordAction(
     			savedIncident.getId(),
     			"STATUS_UPDATED",
-    			oldStatus + " -> " + status,
+    			oldStatus + " -> " + status
+    					+ (cleanNotes.isEmpty() ? "" : " | Notes: " + shorten(cleanNotes, 150)),
     			currentUsername());
 
 		notificationService.sendNotification(

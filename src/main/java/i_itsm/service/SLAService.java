@@ -3,7 +3,9 @@ package i_itsm.service;
 import java.time.LocalDateTime;
 import java.util.Map;
 
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import i_itsm.model.Incident;
 import i_itsm.model.SLAPolicy;
@@ -85,5 +87,33 @@ public class SLAService {
         }
 
         return violated;
+    }
+
+    /**
+     * Read-only answer for "is this incident's SLA violated?", used when someone views it.
+     * No saving and no notifications here: the scheduled check below does that.
+     */
+    public boolean isViolated(Incident incident) {
+        boolean overdueNow = incident.getResolvedAt() == null
+                && incident.getSlaDeadline() != null
+                && LocalDateTime.now().isAfter(incident.getSlaDeadline());
+        return incident.isSlaViolated() || overdueNow;
+    }
+
+    /**
+     * Runs every minute: flags open incidents that have just passed their deadline
+     * and sends the breach notification once per incident.
+     */
+    @Scheduled(fixedRate = 60_000)
+    @Transactional
+    public void flagOverdueIncidents() {
+        for (Incident incident : incidentRepository.findNewlyOverdue(LocalDateTime.now())) {
+            if (incidentRepository.markSlaViolated(incident.getId()) == 1) {
+                String message = "SLA breached for incident '" + incident.getTitle()
+                        + "' (Priority: " + incident.getPriority() + ")";
+                notificationService.sendNotification(incident.getId(), message, "IN_APP");
+                notificationService.sendNotification(incident.getId(), message, "EMAIL");
+            }
+        }
     }
 }

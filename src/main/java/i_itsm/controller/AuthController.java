@@ -9,7 +9,9 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 
+import i_itsm.model.Technician;
 import i_itsm.model.User;
+import i_itsm.repository.TechnicianRepository;
 import i_itsm.repository.UserRepository;
 import i_itsm.service.UserService;
 
@@ -20,8 +22,11 @@ public class AuthController {
     private final UserRepository userRepository;
     private final UserService userService;
     private final PasswordEncoder passwordEncoder;
+    private final TechnicianRepository technicianRepository;
 
-    public AuthController(UserRepository userRepository, UserService userService, PasswordEncoder passwordEncoder) {
+    public AuthController(UserRepository userRepository, UserService userService, PasswordEncoder passwordEncoder,
+                          TechnicianRepository technicianRepository) {
+        this.technicianRepository = technicianRepository;
         this.userRepository = userRepository;
         this.userService = userService;
         this.passwordEncoder = passwordEncoder;
@@ -39,11 +44,10 @@ public class AuthController {
         response.put("username", user.getUsername());
         response.put("role", user.getRole());
 
-        // Try to find associated technician for technician users
+        // A technician login is linked to its Technician record by username (set on the admin Technicians page)
         if ("TECHNICIAN".equals(user.getRole())) {
-            // In a real system, you'd have a proper User-Technician link
-            // For now, we return null and frontend will use its fallback
-            response.put("technicianId", null);
+            response.put("technicianId",
+                    technicianRepository.findByUsername(username).map(Technician::getId).orElse(null));
         }
 
         return response;

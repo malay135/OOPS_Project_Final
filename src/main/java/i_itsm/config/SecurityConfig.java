@@ -117,12 +117,9 @@ public class SecurityConfig {
                     "ADMINISTRATOR"
                 )
 
-                // Only technicians and administrators can assign incidents
+                // Only administrators can assign incidents
                 .requestMatchers("/api/assignments/**")
-                .hasAnyRole(
-                    "TECHNICIAN",
-                    "ADMINISTRATOR"
-                )
+                .hasRole("ADMINISTRATOR")
 
                 // Only administrators can view audit information
                 .requestMatchers("/api/audit/**")
@@ -135,8 +132,9 @@ public class SecurityConfig {
                 // Current user info endpoint
                 .requestMatchers("/api/me").authenticated()
 
-                // Technicians endpoints
-                .requestMatchers("/api/technicians/**").hasAnyRole("TECHNICIAN", "ADMINISTRATOR")
+                // Technicians: technicians and administrators can view; only administrators can add or edit
+                .requestMatchers(HttpMethod.GET, "/api/technicians/**").hasAnyRole("TECHNICIAN", "ADMINISTRATOR")
+                .requestMatchers("/api/technicians/**").hasRole("ADMINISTRATOR")
 
                 // SLA endpoint
                 .requestMatchers("/api/sla/**").authenticated()

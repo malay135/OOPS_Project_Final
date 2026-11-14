@@ -60,8 +60,9 @@ public class IncidentController {
     @PutMapping("/{id}/status")
     public Incident updateStatus(
     		@PathVariable Long id,
-    		@RequestParam String status) {
-    	return incidentService.updateStatus(id, status);
+    		@RequestParam String status,
+    		@RequestParam(required = false) String notes) {
+    	return incidentService.updateStatus(id, status, notes);
     }
 
     @GetMapping("/mine")

@@ -1,5 +1,6 @@
 package i_itsm.model;
 
+import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.GeneratedValue;
@@ -43,6 +44,9 @@ public class Incident {
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "reported_by")
     private User reportedBy;
+    @Size(max = 2000, message = "Resolution notes must not exceed 2000 characters")
+    @Column(length = 2000)
+    private String resolutionNotes;
 
     public Incident() {
         this.status = "OPEN";
@@ -168,5 +172,13 @@ public class Incident {
 
     public void setReportedBy(User reportedBy) {
         this.reportedBy = reportedBy;
+    }
+
+    public String getResolutionNotes() {
+        return resolutionNotes;
+    }
+
+    public void setResolutionNotes(String resolutionNotes) {
+        this.resolutionNotes = resolutionNotes;
     }
 }

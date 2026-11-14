@@ -13,6 +13,9 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.Table;
 import jakarta.persistence.FetchType;
+import jakarta.persistence.Transient;
+
+import com.fasterxml.jackson.annotation.JsonProperty;
 
 @Entity
 @Table(name = "technicians")
@@ -32,6 +35,15 @@ public class Technician {
     private Set<String> skills = new HashSet<>();
     private int activeIncidentCount;
     private boolean active = true;
+
+    // The login (users.username) this technician signs in with; null = not linked yet
+    @Column(unique = true)
+    private String username;
+
+    // Only read from a request when an admin creates or resets the login; never stored here, never sent back
+    @Transient
+    @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
+    private String password;
 
     public Technician() {
     }
@@ -82,5 +94,21 @@ public class Technician {
 
     public void setActive(boolean active) {
     this.active = active;
+    }
+
+    public String getUsername() {
+        return username;
+    }
+
+    public void setUsername(String username) {
+        this.username = username;
+    }
+
+    public String getPassword() {
+        return password;
+    }
+
+    public void setPassword(String password) {
+        this.password = password;
     }
 }

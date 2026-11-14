@@ -32,7 +32,7 @@ public class SLAController {
         Incident incident =
                 incidentService.getIncidentById(incidentId);
 
-        boolean violated = slaService.checkViolation(incident);
+        boolean violated = slaService.isViolated(incident); // read-only: viewing changes nothing
   
         Map<String, Object> result = new java.util.HashMap<>();
 
