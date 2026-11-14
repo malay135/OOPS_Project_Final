@@ -2,6 +2,7 @@ package i_itsm.repository;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import i_itsm.model.Incident;
+import i_itsm.model.User;
 import java.util.List;
 
 import org.springframework.data.jpa.repository.Query;
@@ -28,5 +29,7 @@ List<Incident> searchIncidents(
         @Param("technicianId") Long technicianId,
         @Param("title") String title
 );
+
+List<Incident> findByReportedByOrderByCreatedAtDesc(User reportedBy);
 
 }

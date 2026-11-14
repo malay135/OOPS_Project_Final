@@ -17,17 +17,24 @@ public class AuditRecord {
     private Long incidentId;
     private String action;
     private String details;
+    private String performedBy;
     private LocalDateTime timestamp;
 
     public AuditRecord() {
         this.timestamp = LocalDateTime.now();
     }
 
-    public AuditRecord(Long incidentId, String action, String details) {
+    public AuditRecord(Long incidentId, String action, String details, String performedBy) {
         this.incidentId = incidentId;
         this.action = action;
         this.details = details;
+        this.performedBy = performedBy;
         this.timestamp = LocalDateTime.now();
+    }
+
+    // Backward compatibility constructor
+    public AuditRecord(Long incidentId, String action, String details) {
+        this(incidentId, action, details, null);
     }
 
     public Long getId() {
@@ -56,6 +63,14 @@ public class AuditRecord {
 
     public void setDetails(String details) {
         this.details = details;
+    }
+
+    public String getPerformedBy() {
+        return performedBy;
+    }
+
+    public void setPerformedBy(String performedBy) {
+        this.performedBy = performedBy;
     }
 
     public LocalDateTime getTimestamp() {

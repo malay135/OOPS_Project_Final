@@ -2,10 +2,14 @@ package i_itsm.service;
 
 import java.util.List;
 
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
 import i_itsm.model.Incident;
+import i_itsm.model.User;
 import i_itsm.repository.IncidentRepository;
+import i_itsm.repository.UserRepository;
 import i_itsm.notification.NotificationService;
 import i_itsm.repository.TechnicianRepository;
 
@@ -18,6 +22,7 @@ public class IncidentService {
     private final SLAService slaService;
 	private final NotificationService notificationService;
 	private final TechnicianRepository technicianRepository;
+	private final UserRepository userRepository;
 
     public IncidentService(
     		IncidentRepository incidentRepository,
@@ -25,7 +30,8 @@ public class IncidentService {
     		AuditService auditService,
     		SLAService slaService,
     		NotificationService notificationService,
-    		TechnicianRepository technicianRepository) {
+    		TechnicianRepository technicianRepository,
+    		UserRepository userRepository) {
 
     	this.incidentRepository = incidentRepository;
     	this.priorityService = priorityService;
@@ -33,6 +39,17 @@ public class IncidentService {
     	this.slaService = slaService;
 		this.notificationService = notificationService;
 		this.technicianRepository = technicianRepository;
+		this.userRepository = userRepository;
+    }
+
+    private String currentUsername() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        return auth != null ? auth.getName() : "system";
+    }
+
+    private User currentUser() {
+        String username = currentUsername();
+        return userRepository.findByUsername(username).orElse(null);
     }
 
     public Incident createIncident(Incident incident) {
@@ -47,6 +64,12 @@ public class IncidentService {
     	incident.setStatus("OPEN");
     	incident.setCreatedAt(java.time.LocalDateTime.now());
 
+    	// Set the reporter
+    	User reporter = currentUser();
+    	if (reporter != null) {
+    	    incident.setReportedBy(reporter);
+    	}
+
     	slaService.calculateDeadline(incident);
     	
     	Incident savedIncident = incidentRepository.save(incident);
@@ -57,7 +80,8 @@ public class IncidentService {
     			"Incident created with priority "
     					+ savedIncident.getPriority()
     					+ " and SLA deadline "
-    					+ savedIncident.getSlaDeadline());
+    					+ savedIncident.getSlaDeadline(),
+    			currentUsername());
 		
 		notificationService.sendNotification(
         savedIncident.getId(),
@@ -85,8 +109,7 @@ public class IncidentService {
                         new IllegalArgumentException("Incident not found: " + id));
     }
     
-
-
+    
     public Incident updateStatus(Long id, String newStatus) {
     	Incident incident = getIncidentById(id);
 
@@ -107,36 +130,39 @@ public class IncidentService {
     	incident.setStatus(status);
 
     	if ((status.equals("RESOLVED") || status.equals("CLOSED"))
-        		&& !("RESOLVED".equals(oldStatus)
+        	&& !("RESOLVED".equals(oldStatus)
              		|| "CLOSED".equals(oldStatus))) {
 
-    		incident.setResolvedAt(java.time.LocalDateTime.now());
+    	    incident.setResolvedAt(java.time.LocalDateTime.now());
 
-    		if (incident.getAssignedTechnician() != null) {
-        		var technician = incident.getAssignedTechnician();
-        		technician.setActiveIncidentCount(
-                		Math.max(0, technician.getActiveIncidentCount() - 1));
+    	    if (incident.getAssignedTechnician() != null) {
+        	    var technician = incident.getAssignedTechnician();
+        	    technician.setActiveIncidentCount(
+                 		Math.max(0, technician.getActiveIncidentCount() - 1));
 
-        		technicianRepository.save(technician);
-    		}
+        	    technicianRepository.save(technician);
+    	    }
 		}
-           // Reopening a resolved/closed incident makes it active again
-           boolean wasDone = "RESOLVED".equals(oldStatus) || "CLOSED".equals(oldStatus);
-           boolean nowDone = status.equals("RESOLVED") || status.equals("CLOSED");
-           if (wasDone && !nowDone) {
-               incident.setResolvedAt(null);
-               if (incident.getAssignedTechnician() != null) {
-                   var technician = incident.getAssignedTechnician();
-                   technician.setActiveIncidentCount(technician.getActiveIncidentCount() + 1);
-                   technicianRepository.save(technician);
-               }
-           }
+
+        // Reopening a resolved/closed incident makes it active again
+        boolean wasDone = "RESOLVED".equals(oldStatus) || "CLOSED".equals(oldStatus);
+        boolean nowDone = status.equals("RESOLVED") || status.equals("CLOSED");
+        if (wasDone && !nowDone) {
+            incident.setResolvedAt(null);
+            if (incident.getAssignedTechnician() != null) {
+                var technician = incident.getAssignedTechnician();
+                technician.setActiveIncidentCount(technician.getActiveIncidentCount() + 1);
+                technicianRepository.save(technician);
+            }
+        }
+
     	Incident savedIncident = incidentRepository.save(incident);
 
     	auditService.recordAction(
     			savedIncident.getId(),
     			"STATUS_UPDATED",
-    			oldStatus + " -> " + status);
+    			oldStatus + " -> " + status,
+    			currentUsername());
 
 		notificationService.sendNotification(
 		savedIncident.getId(),
@@ -157,19 +183,27 @@ public class IncidentService {
 
 	public List<Incident> searchIncidents(
     	    Long incidentId,
-        	String priority,
-        	String status,
-        	String category,
-        	Long technicianId,
-        	String title) {
+         String priority,
+         String status,
+         String category,
+         Long technicianId,
+         String title) {
 
     	return incidentRepository.searchIncidents(
-        	    incidentId,
-            	priority,
-            	status,
-            	category,
-            	technicianId,
-            	title
-    	);
+    	    incidentId,
+        	priority,
+        	status,
+        	category,
+        	technicianId,
+        	title
+	);
+	}
+
+	public List<Incident> getMyIncidents() {
+	    User user = currentUser();
+	    if (user == null) {
+	        return List.of();
+	    }
+	    return incidentRepository.findByReportedByOrderByCreatedAtDesc(user);
 	}
 }

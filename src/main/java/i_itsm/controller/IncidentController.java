@@ -63,4 +63,9 @@ public class IncidentController {
     		@RequestParam String status) {
     	return incidentService.updateStatus(id, status);
     }
+
+    @GetMapping("/mine")
+    public List<Incident> getMyIncidents() {
+        return incidentService.getMyIncidents();
+    }
 }

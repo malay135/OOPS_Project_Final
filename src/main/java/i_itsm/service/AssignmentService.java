@@ -2,7 +2,10 @@ package i_itsm.service;
 
 import java.util.List;
 
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import i_itsm.model.Incident;
 import i_itsm.model.Technician;
@@ -12,7 +15,6 @@ import i_itsm.repository.TechnicianRepository;
 import i_itsm.strategy.AssignmentStrategy;
 import i_itsm.strategy.LeastLoadedAssignment;
 import i_itsm.strategy.SkillBasedAssignment;
-import org.springframework.transaction.annotation.Transactional;
 import i_itsm.exception.IncidentAssignmentException;
 import i_itsm.exception.InvalidIncidentException;
 
@@ -40,6 +42,11 @@ public class AssignmentService {
         this.incidentRepository = incidentRepository;
         this.notificationService = notificationService;
         this.auditService = auditService;
+    }
+
+    private String currentUsername() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        return auth != null ? auth.getName() : "system";
     }
 
     @Transactional 
@@ -108,7 +115,8 @@ public class AssignmentService {
                 incident.getId(),
                 "TECHNICIAN_ASSIGNED",
                 "Incident assigned to " + assigned.getName()
-                        + " (Technician ID: " + assigned.getId() + ")");
+                        + " (Technician ID: " + assigned.getId() + ")",
+                currentUsername());
 
         String message = "Incident '"
                 + incident.getTitle()

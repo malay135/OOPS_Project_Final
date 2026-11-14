@@ -40,6 +40,9 @@ public class Incident {
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "assigned_technician_id")
     private Technician assignedTechnician;
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "reported_by")
+    private User reportedBy;
 
     public Incident() {
         this.status = "OPEN";
@@ -157,5 +160,13 @@ public class Incident {
 
     public void setAssignedTechnician(Technician assignedTechnician) {
         this.assignedTechnician = assignedTechnician;
+    }
+
+    public User getReportedBy() {
+        return reportedBy;
+    }
+
+    public void setReportedBy(User reportedBy) {
+        this.reportedBy = reportedBy;
     }
 }
