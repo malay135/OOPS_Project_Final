@@ -130,7 +130,7 @@ public class SecurityConfig {
                 .authenticated()
 
                 // Current user info endpoint
-                .requestMatchers("/api/me").authenticated()
+                .requestMatchers("/api/me", "/api/me/**").authenticated()
 
                 // Technicians: technicians and administrators can view; only administrators can add or edit
                 .requestMatchers(HttpMethod.GET, "/api/technicians/**").hasAnyRole("TECHNICIAN", "ADMINISTRATOR")

@@ -53,6 +53,14 @@ public class AuthController {
         return response;
     }
 
+    // A logged-in user changes their own password: body {"currentPassword": "...", "newPassword": "..."}
+    @PutMapping("/me/password")
+    public Map<String, Object> changePassword(@RequestBody Map<String, String> body) {
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        userService.changePassword(username, body.get("currentPassword"), body.get("newPassword"));
+        return Map.of("message", "Password changed");
+    }
+
     @PostMapping("/auth/register")
     public Map<String, Object> register(@RequestBody Map<String, String> body) {
         String username = body.get("username");
