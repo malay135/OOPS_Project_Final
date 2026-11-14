@@ -43,6 +43,7 @@ public class AuthController {
         Map<String, Object> response = new HashMap<>();
         response.put("username", user.getUsername());
         response.put("role", user.getRole());
+        response.put("email", user.getEmail() == null ? "" : user.getEmail());
 
         // A technician login is linked to its Technician record by username (set on the admin Technicians page)
         if ("TECHNICIAN".equals(user.getRole())) {
@@ -61,6 +62,14 @@ public class AuthController {
         return Map.of("message", "Password changed");
     }
 
+    // A logged-in user saves the email address for notification emails: body {"email": "..."} (blank removes it)
+    @PutMapping("/me/email")
+    public Map<String, Object> updateEmail(@RequestBody Map<String, String> body) {
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        String saved = userService.updateEmail(username, body.get("email"));
+        return Map.of("email", saved == null ? "" : saved);
+    }
+
     @PostMapping("/auth/register")
     public Map<String, Object> register(@RequestBody Map<String, String> body) {
         String username = body.get("username");
@@ -76,8 +85,10 @@ public class AuthController {
         if (userRepository.findByUsername(username).isPresent()) {
             throw new IllegalArgumentException("Username already taken");
         }
+        String email = UserService.cleanEmail(body.get("email")); // optional
 
         User user = new User(username, passwordEncoder.encode(password), "EMPLOYEE");
+        user.setEmail(email);
         User saved = userRepository.save(user);
 
         Map<String, Object> response = new HashMap<>();

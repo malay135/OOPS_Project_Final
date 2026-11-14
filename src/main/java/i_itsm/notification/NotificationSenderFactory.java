@@ -6,11 +6,11 @@ import org.springframework.stereotype.Component;
 public class NotificationSenderFactory {
 
     private final InAppNotificationSender inAppSender;
-    private final SimulatedEmailNotificationSender emailSender;
+    private final EmailNotificationSender emailSender;
 
     public NotificationSenderFactory(
             InAppNotificationSender inAppSender,
-            SimulatedEmailNotificationSender emailSender) {
+            EmailNotificationSender emailSender) {
 
         this.inAppSender = inAppSender;
         this.emailSender = emailSender;

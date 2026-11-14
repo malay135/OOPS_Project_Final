@@ -1,6 +1,7 @@
 package i_itsm.model;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -20,6 +21,11 @@ public class User {
     private String password;
 
     private String role;
+
+    // Optional. Notification emails go here. Each user sets it on the "My account" page.
+    // Hidden from JSON so other users never see it inside incident data.
+    @Column(length = 254)
+    private String email;
 
     public User() {
     }
@@ -57,5 +63,14 @@ public class User {
 
     public void setRole(String role) {
         this.role = role;
+    }
+
+    @JsonIgnore
+    public String getEmail() {
+        return email;
+    }
+
+    public void setEmail(String email) {
+        this.email = email;
     }
 }

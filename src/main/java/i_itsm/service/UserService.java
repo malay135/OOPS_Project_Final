@@ -1,5 +1,7 @@
 package i_itsm.service;
 
+import java.util.regex.Pattern;
+
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -8,6 +10,9 @@ import i_itsm.repository.UserRepository;
 
 @Service
 public class UserService {
+
+    // Simple check: something@something.something, with no spaces
+    private static final Pattern EMAIL_FORMAT = Pattern.compile("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$");
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
@@ -40,5 +45,25 @@ public class UserService {
 
         user.setPassword(passwordEncoder.encode(newPassword));
         userRepository.save(user);
+    }
+
+    /** Saves the email address used for notification emails. A blank value removes it. Returns what was saved. */
+    public String updateEmail(String username, String email) {
+        User user = findByUsername(username);
+        user.setEmail(cleanEmail(email));
+        userRepository.save(user);
+        return user.getEmail();
+    }
+
+    /** Blank becomes null (no email). Otherwise the address is trimmed and checked. Also used when registering. */
+    public static String cleanEmail(String email) {
+        if (email == null || email.isBlank()) {
+            return null;
+        }
+        String clean = email.trim();
+        if (clean.length() > 254 || !EMAIL_FORMAT.matcher(clean).matches()) {
+            throw new IllegalArgumentException("Enter a valid email address, like name@example.com");
+        }
+        return clean;
     }
 }

@@ -1,5 +1,6 @@
 package i_itsm.config;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -33,12 +34,15 @@ public class SecurityConfig {
         return new BCryptPasswordEncoder();
     }
 
+    // Websites allowed to call this backend: the Vite dev server on our laptops, and on the cloud
+    // the website address in APP_URL (the Netlify site). Netlify passes the browser's Origin header on,
+    // so without the cloud address every POST/PUT (report, assign, status change) would be refused.
     @Bean
-    public CorsConfigurationSource corsConfigurationSource() {
+    public CorsConfigurationSource corsConfigurationSource(@Value("${app.url:http://localhost:5173}") String appUrl) {
         CorsConfiguration config = new CorsConfiguration();
-        config.setAllowedOrigins(List.of("http://localhost:5173", "http://127.0.0.1:5173"));
+        config.setAllowedOrigins(List.of("http://localhost:5173", "http://127.0.0.1:5173", appUrl.trim().replaceAll("/+$", "")));
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
-        config.setAllowedHeaders(List.of("Authorization", "Content-Type", "Accept"));
+        config.setAllowedHeaders(List.of("Authorization", "Content-Type", "Accept", "X-Requested-With"));
         config.setAllowCredentials(true);
         config.setMaxAge(3600L);
 
@@ -87,6 +91,9 @@ public class SecurityConfig {
 
                 // Public registration endpoint
                 .requestMatchers(HttpMethod.POST, "/api/auth/register").permitAll()
+
+                // Public "is the server awake?" check, used by the cloud host and the login page
+                .requestMatchers(HttpMethod.GET, "/api/health").permitAll()
 
                 // Anyone with a valid account can view/search incidents
                 .requestMatchers(

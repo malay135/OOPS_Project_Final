@@ -1,5 +1,7 @@
 package i_itsm;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -20,7 +22,7 @@ import i_itsm.model.User;
 import i_itsm.repository.UserRepository;
 import i_itsm.service.UserService;
 
-/** Changing your own password. */
+/** Changing your own password, and saving your email address. */
 class UserServiceTest {
 
     @Mock private UserRepository userRepository;
@@ -63,5 +65,26 @@ class UserServiceTest {
     void samePasswordIsRejected() {
         assertThrows(IllegalArgumentException.class,
                 () -> userService.changePassword("riya", "riya123", "riya123"));
+    }
+
+    @Test
+    void emailIsTrimmedAndSaved() {
+        assertEquals("riya@example.com", userService.updateEmail("riya", "  riya@example.com "));
+        assertEquals("riya@example.com", riya.getEmail());
+        verify(userRepository).save(riya);
+    }
+
+    @Test
+    void blankEmailRemovesIt() {
+        riya.setEmail("riya@example.com");
+        assertNull(userService.updateEmail("riya", " "));
+        assertNull(riya.getEmail());
+    }
+
+    @Test
+    void invalidEmailIsRejected() {
+        assertThrows(IllegalArgumentException.class, () -> userService.updateEmail("riya", "riya at example"));
+        assertThrows(IllegalArgumentException.class, () -> userService.updateEmail("riya", "riya@example"));
+        verify(userRepository, never()).save(any());
     }
 }
