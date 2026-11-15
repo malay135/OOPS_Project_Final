@@ -38,13 +38,23 @@ public class NotificationService {
         return saved;
     }
 
+    public Notification sendNotificationTo(Long incidentId, String message, String channel, String username) {
+        Notification notification = new Notification(incidentId, message, channel);
+        notification.setRecipientUsername(username);
+        Notification saved = notificationRepository.save(notification);
+        senderFactory.getSender(channel).send(saved);
+        return saved;
+    }
+
     public List<Notification> getNotifications(Long incidentId) {
         return notificationRepository
                 .findByIncidentIdOrderByCreatedAtDesc(incidentId);
     }
 
     public List<Notification> getAllNotifications() {
-        return notificationRepository.findAll();
+        org.springframework.security.core.Authentication auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null) return List.of();
+        return notificationRepository.findByRecipientUsernameOrRecipientUsernameIsNullOrderByCreatedAtDesc(auth.getName());
     }
 
     public Notification markAsRead(Long notificationId) {

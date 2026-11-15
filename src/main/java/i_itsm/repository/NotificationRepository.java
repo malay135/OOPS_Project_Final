@@ -9,6 +9,8 @@ import i_itsm.model.Notification;
 public interface NotificationRepository
         extends JpaRepository<Notification, Long> {
 
+    List<Notification> findByRecipientUsernameOrRecipientUsernameIsNullOrderByCreatedAtDesc(String username);
+
     List<Notification> findByIncidentIdOrderByCreatedAtDesc(
             Long incidentId);
 }

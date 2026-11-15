@@ -19,6 +19,8 @@ public class Notification {
     private LocalDateTime createdAt;
     @Column(name = "is_read")
     private boolean read;
+    // Null means a legacy/broadcast notification; otherwise visible to this login.
+    private String recipientUsername;
 
     public Notification() {
         this.createdAt = LocalDateTime.now();
@@ -64,6 +66,10 @@ public class Notification {
     public LocalDateTime getCreatedAt() {
         return createdAt;
     }
+
+    public String getRecipientUsername() { return recipientUsername; }
+
+    public void setRecipientUsername(String recipientUsername) { this.recipientUsername = recipientUsername; }
 
     public boolean isRead() {
         return read;

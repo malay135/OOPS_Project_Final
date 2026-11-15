@@ -2,6 +2,7 @@ package i_itsm.service;
 
 import java.util.List;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -25,7 +26,9 @@ public class IncidentService {
 	private final NotificationService notificationService;
 	private final TechnicianRepository technicianRepository;
 	private final UserRepository userRepository;
+    private final AssignmentService assignmentService;
 
+    // Compatibility constructor (unit tests): no automatic assignment.
     public IncidentService(
     		IncidentRepository incidentRepository,
     		PriorityService priorityService,
@@ -34,7 +37,22 @@ public class IncidentService {
     		NotificationService notificationService,
     		TechnicianRepository technicianRepository,
     		UserRepository userRepository) {
+        this(incidentRepository, priorityService, auditService, slaService, notificationService,
+                technicianRepository, userRepository, null);
+    }
 
+    @Autowired
+    public IncidentService(
+    		IncidentRepository incidentRepository,
+    		PriorityService priorityService,
+    		AuditService auditService,
+    		SLAService slaService,
+    		NotificationService notificationService,
+    		TechnicianRepository technicianRepository,
+    		UserRepository userRepository,
+    		AssignmentService assignmentService) {
+
+    	this.assignmentService = assignmentService;
     	this.incidentRepository = incidentRepository;
     	this.priorityService = priorityService;
     	this.auditService = auditService;
@@ -123,7 +141,14 @@ public class IncidentService {
                 + "' has been created.",
         "EMAIL");
 
-    	return savedIncident;
+        // Assignment is automatic on incident creation: skills take precedence, then workload.
+        try {
+            if (assignmentService != null) assignmentService.autoAssignIncident(savedIncident.getId());
+            savedIncident = incidentRepository.findById(savedIncident.getId()).orElse(savedIncident);
+        } catch (i_itsm.exception.IncidentAssignmentException noTechnicianAvailable) {
+            // Keep the incident open and unassigned; it can be assigned when a technician becomes available.
+        }
+	return savedIncident;
     }
 
     public List<Incident> getAllIncidents() {
@@ -143,6 +168,9 @@ public class IncidentService {
 
     public Incident updateStatus(Long id, String newStatus, String notes) {
     	Incident incident = getIncidentById(id);
+        if ("IN_PROGRESS".equalsIgnoreCase(newStatus) && currentUserHasRole("ADMINISTRATOR")) {
+            throw new AccessDeniedException("Administrators cannot start work on behalf of technicians");
+        }
 
     	if (newStatus == null) {
     		throw new IllegalArgumentException("Status is required");
