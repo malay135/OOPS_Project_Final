@@ -138,6 +138,16 @@ class IncidentServiceTest {
     }
 
     @Test
+    void administratorCannotStartWorkForTechnician() {
+        loginAs("admin", "ADMINISTRATOR");
+        incident("OPEN", ravi);
+
+        assertThrows(AccessDeniedException.class,
+                () -> incidentService.updateStatus(5L, "IN_PROGRESS", null));
+        verify(incidentRepository, never()).save(any());
+    }
+
+    @Test
     void adminReopeningClearsResolutionAndRaisesWorkload() {
         loginAs("admin", "ADMINISTRATOR");
         Incident incident = incident("RESOLVED", ravi);

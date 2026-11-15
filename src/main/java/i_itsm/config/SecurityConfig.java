@@ -124,7 +124,13 @@ public class SecurityConfig {
                     "ADMINISTRATOR"
                 )
 
-                // Only administrators can assign incidents
+                // Delegation is requested by the assigned technician; approving/rejecting and overrides are admin-only.
+                .requestMatchers(HttpMethod.POST, "/api/assignments/*/delegate")
+                .hasRole("TECHNICIAN")
+                .requestMatchers(HttpMethod.GET, "/api/assignments/delegations/mine")
+                .hasRole("TECHNICIAN")
+                .requestMatchers(HttpMethod.POST, "/api/assignments/override")
+                .hasRole("ADMINISTRATOR")
                 .requestMatchers("/api/assignments/**")
                 .hasRole("ADMINISTRATOR")
 
