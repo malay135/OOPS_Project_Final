@@ -106,3 +106,13 @@ Automatic assignment skips technicians at the limit. Admin override, delegation 
 
 ### Bug fix
 Saving SLA times on the Settings page returned "400 Bad Request": the JSON reader used the `SLAPolicy(priority, resolutionTimeHours)` constructor. That constructor is now marked `@JsonCreator(mode = DISABLED)`, and `SlaPolicyJsonTest` checks it.
+
+
+## 2026-11-22 sample data for a new computer
+
+`config/SampleDataInitializer` runs when the application has started:
+- no technicians yet: adds Ravi Kumar (HARDWARE, login `technician`), Priya Sharma (NETWORK, SECURITY, login `priya` / `priya123`) and Arjun Mehta (SOFTWARE, DATABASE, login `arjun` / `arjun123`);
+- the `technician` login linked to nobody: links it to the first technician without a login;
+- no incidents yet: reports 6 sample incidents through `IncidentService` (so priority, SLA, assignment, duplicate detection, notifications and audit work normally) and moves them to different stages, including one closed with feedback.
+
+A database that already has data is not changed (apart from linking an unlinked `technician` login). `SAMPLE_DATA=false` turns it off. README.md explains how to run the project locally.
