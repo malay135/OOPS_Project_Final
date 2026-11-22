@@ -18,6 +18,8 @@ public class AuditRecord {
     private String action;
     private String details;
     private String performedBy;
+    private String previousState;
+    private String newState;
     private LocalDateTime timestamp;
 
     public AuditRecord() {
@@ -72,6 +74,11 @@ public class AuditRecord {
     public void setPerformedBy(String performedBy) {
         this.performedBy = performedBy;
     }
+
+    public String getPreviousState() { return previousState; }
+    public void setPreviousState(String previousState) { this.previousState = previousState; }
+    public String getNewState() { return newState; }
+    public void setNewState(String newState) { this.newState = newState; }
 
     public LocalDateTime getTimestamp() {
         return timestamp;

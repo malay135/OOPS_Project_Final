@@ -3,10 +3,43 @@ package i_itsm.service;
 import org.springframework.stereotype.Service;
 import i_itsm.exception.InvalidIncidentException;
 
+/**
+ * Works out the priority (P1 = critical ... P4 = low).
+ *
+ * 1. Impact and urgency give the base priority (table below).
+ * 2. HIGH business criticality raises it one level.
+ * 3. The number of affected users raises it further:
+ *      1-9 people: no change, 10-99 people: one level, 100 or more: two levels.
+ * It never goes above P1.
+ */
 @Service
 public class PriorityService {
 
+    static final int MANY_USERS = 10;
+    static final int VERY_MANY_USERS = 100;
+
+    /** Without a number of affected users (counted as one person). */
     public String calculatePriority(
+            String impact,
+            String urgency,
+            String businessCriticality) {
+        return calculatePriority(impact, urgency, businessCriticality, null);
+    }
+
+    public String calculatePriority(
+            String impact,
+            String urgency,
+            String businessCriticality,
+            Integer affectedUsers) {
+        String priority = priorityFromFactors(impact, urgency, businessCriticality);
+        int people = affectedUsers == null ? 1 : affectedUsers;
+        if (people < 1) throw new InvalidIncidentException("Number of affected users must be at least 1");
+        if (people >= MANY_USERS) priority = increasePriority(priority);
+        if (people >= VERY_MANY_USERS) priority = increasePriority(priority);
+        return priority;
+    }
+
+    private String priorityFromFactors(
             String impact,
             String urgency,
             String businessCriticality) {

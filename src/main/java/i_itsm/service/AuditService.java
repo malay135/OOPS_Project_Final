@@ -29,6 +29,13 @@ public class AuditService {
         return auditRecordRepository.save(record);
     }
 
+    public AuditRecord recordStatusChange(Long incidentId, String action, String previousState, String newState, String details, String performedBy) {
+        AuditRecord record = new AuditRecord(incidentId, action, details, performedBy);
+        record.setPreviousState(previousState);
+        record.setNewState(newState);
+        return auditRecordRepository.save(record);
+    }
+
     public List<AuditRecord> getIncidentHistory(Long incidentId) {
         return auditRecordRepository.findByIncidentIdOrderByTimestampDesc(incidentId);
     }

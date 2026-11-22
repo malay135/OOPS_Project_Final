@@ -3,6 +3,7 @@ package i_itsm.exception;
 import java.util.HashMap;
 import java.util.Map;
 
+import org.springframework.dao.DataAccessException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
@@ -52,6 +53,15 @@ public class GlobalExceptionHandler {
         return ResponseEntity
                 .status(HttpStatus.CONFLICT)
                 .body(error);
+    }
+
+    // Database not reachable or a query failed: a clear message instead of a raw server error
+    @ExceptionHandler(DataAccessException.class)
+    public ResponseEntity<Map<String, String>> handleDatabaseException(DataAccessException exception) {
+        System.out.println("Database error: " + exception.getMostSpecificCause().getMessage());
+        Map<String, String> error = new HashMap<>();
+        error.put("error", "The database is not available right now. Please try again in a minute.");
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(error);
     }
 
     @ExceptionHandler(AccessDeniedException.class)

@@ -95,6 +95,9 @@ public class SecurityConfig {
                 // Public "is the server awake?" check, used by the cloud host and the login page
                 .requestMatchers(HttpMethod.GET, "/api/health").permitAll()
 
+                // Suggested resolutions show other incidents' fixes, so only technicians and admins
+                .requestMatchers(HttpMethod.GET, "/api/incidents/*/suggestions").hasAnyRole("TECHNICIAN", "ADMINISTRATOR")
+
                 // Anyone with a valid account can view/search incidents
                 .requestMatchers(
                     HttpMethod.GET,
@@ -115,14 +118,14 @@ public class SecurityConfig {
                     "ADMINISTRATOR"
                 )
 
-                // Only technicians and administrators can change status
-                .requestMatchers(
-                    HttpMethod.PUT,
-                    "/api/incidents/*/status"
-                ).hasAnyRole(
-                    "TECHNICIAN",
-                    "ADMINISTRATOR"
-                )
+                // Technicians/admins change lifecycle; employees may edit their own incident details through service-level ownership checks.
+                .requestMatchers(HttpMethod.PUT, "/api/incidents/*/status").hasAnyRole("TECHNICIAN", "ADMINISTRATOR")
+                .requestMatchers(HttpMethod.POST, "/api/incidents/*/acknowledge").hasRole("TECHNICIAN")
+                .requestMatchers(HttpMethod.PUT, "/api/incidents/*").hasAnyRole("EMPLOYEE", "TECHNICIAN", "ADMINISTRATOR")
+
+                .requestMatchers(HttpMethod.GET, "/api/incidents/*/notes").hasAnyRole("EMPLOYEE", "TECHNICIAN", "ADMINISTRATOR")
+                .requestMatchers(HttpMethod.POST, "/api/incidents/*/notes").hasAnyRole("EMPLOYEE", "TECHNICIAN", "ADMINISTRATOR")
+                .requestMatchers("/api/incidents/*/feedback").hasAnyRole("EMPLOYEE", "TECHNICIAN", "ADMINISTRATOR")
 
                 // Delegation is requested by the assigned technician; approving/rejecting and overrides are admin-only.
                 .requestMatchers(HttpMethod.POST, "/api/assignments/*/delegate")
@@ -149,8 +152,17 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.GET, "/api/technicians/**").hasAnyRole("TECHNICIAN", "ADMINISTRATOR")
                 .requestMatchers("/api/technicians/**").hasRole("ADMINISTRATOR")
 
-                // SLA endpoint
+                // SLA endpoint and administrator configuration
                 .requestMatchers("/api/sla/**").authenticated()
+                .requestMatchers(HttpMethod.GET, "/api/sla-policies").hasAnyRole("EMPLOYEE", "TECHNICIAN", "ADMINISTRATOR")
+                .requestMatchers("/api/sla-policies/**").hasRole("ADMINISTRATOR")
+                .requestMatchers(HttpMethod.GET, "/api/services/**").hasAnyRole("EMPLOYEE", "TECHNICIAN", "ADMINISTRATOR")
+                .requestMatchers("/api/services/**").hasRole("ADMINISTRATOR")
+                .requestMatchers(HttpMethod.GET, "/api/categories/**").hasAnyRole("EMPLOYEE", "TECHNICIAN", "ADMINISTRATOR")
+                .requestMatchers("/api/categories/**").hasRole("ADMINISTRATOR")
+                .requestMatchers("/api/users/**").hasRole("ADMINISTRATOR")
+                .requestMatchers(HttpMethod.GET, "/api/settings/workload-limit").hasAnyRole("TECHNICIAN", "ADMINISTRATOR")
+                .requestMatchers("/api/settings/**").hasRole("ADMINISTRATOR")
 
                 // Everything else requires authentication
                 .anyRequest().authenticated()

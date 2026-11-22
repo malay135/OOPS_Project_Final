@@ -9,6 +9,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import i_itsm.exception.IncidentAssignmentException;
+import i_itsm.exception.TechnicianWorkloadExceededException;
 import i_itsm.model.DelegationRequest;
 import i_itsm.model.Incident;
 import i_itsm.model.Technician;
@@ -18,8 +19,11 @@ import i_itsm.repository.DelegationRequestRepository;
 import i_itsm.repository.IncidentRepository;
 import i_itsm.repository.TechnicianRepository;
 import i_itsm.repository.UserRepository;
+import i_itsm.strategy.AssignmentPolicy;
+import i_itsm.strategy.AssignmentStrategy;
 import i_itsm.strategy.LeastLoadedAssignment;
 import i_itsm.strategy.SkillBasedAssignment;
+import i_itsm.strategy.SkillThenWorkloadAssignment;
 
 @Service
 public class AssignmentService {
@@ -31,6 +35,8 @@ public class AssignmentService {
     private final AuditService auditService;
     private final UserRepository userRepository;
     private final DelegationRequestRepository delegationRepository;
+    private final SkillThenWorkloadAssignment skillThenWorkload;
+    private final SystemSettingService settings; // which strategy the admin chose (null in some unit tests = default)
 
     // Compatibility constructor for existing unit tests and integrations.
     public AssignmentService(SkillBasedAssignment skillBasedAssignment, LeastLoadedAssignment leastLoadedAssignment,
@@ -40,11 +46,23 @@ public class AssignmentService {
                 notificationService, auditService, null, null);
     }
 
-    @Autowired
+    // Constructor used by the delegation unit tests: default strategy
     public AssignmentService(SkillBasedAssignment skillBasedAssignment, LeastLoadedAssignment leastLoadedAssignment,
             TechnicianRepository technicianRepository, IncidentRepository incidentRepository,
             NotificationService notificationService, AuditService auditService, UserRepository userRepository,
             DelegationRequestRepository delegationRepository) {
+        this(skillBasedAssignment, leastLoadedAssignment, new SkillThenWorkloadAssignment(skillBasedAssignment, leastLoadedAssignment),
+                technicianRepository, incidentRepository, notificationService, auditService, userRepository, delegationRepository, null);
+    }
+
+    @Autowired
+    public AssignmentService(SkillBasedAssignment skillBasedAssignment, LeastLoadedAssignment leastLoadedAssignment,
+            SkillThenWorkloadAssignment skillThenWorkload,
+            TechnicianRepository technicianRepository, IncidentRepository incidentRepository,
+            NotificationService notificationService, AuditService auditService, UserRepository userRepository,
+            DelegationRequestRepository delegationRepository, SystemSettingService settings) {
+        this.skillThenWorkload = skillThenWorkload;
+        this.settings = settings;
         this.delegationRepository = delegationRepository;
         this.skillBasedAssignment = skillBasedAssignment;
         this.leastLoadedAssignment = leastLoadedAssignment;
@@ -68,15 +86,62 @@ public class AssignmentService {
         return incident;
     }
 
-    /** Automatic policy: best skill match first; if none, least-loaded active technician. */
+    /** The strategy object for the policy the admin chose (Strategy pattern: same interface, different behaviour). */
+    AssignmentStrategy strategyFor(AssignmentPolicy policy) {
+        return switch (policy) {
+            case SKILL_ONLY -> skillBasedAssignment;
+            case LEAST_LOADED -> leastLoadedAssignment;
+            case SKILL_THEN_WORKLOAD -> skillThenWorkload;
+        };
+    }
+
+    public AssignmentPolicy currentPolicy() {
+        return settings == null ? AssignmentPolicy.SKILL_THEN_WORKLOAD : settings.getAssignmentPolicy();
+    }
+
+    /** The most active incidents one technician may have (set by the admin; no limit when settings are not available). */
+    public int workloadLimit() {
+        int limit = settings == null ? 0 : settings.getMaxActiveIncidents();
+        return limit > 0 ? limit : Integer.MAX_VALUE;
+    }
+
+    private boolean hasRoom(Technician t) {
+        return t.getActiveIncidentCount() < workloadLimit();
+    }
+
+    /** Refuses a technician who is already at the limit (custom exception, shown to the user as a clear message). */
+    private void checkHasRoom(Technician t) {
+        if (!hasRoom(t))
+            throw new TechnicianWorkloadExceededException(t.getName() + " already has " + incidents(t.getActiveIncidentCount())
+                    + " (the limit is " + workloadLimit() + "). Choose another technician or raise the limit in Settings.");
+    }
+
+    private static String incidents(int n) {
+        return n + (n == 1 ? " active incident" : " active incidents");
+    }
+
+    /**
+     * Automatic assignment with the strategy chosen on the admin Settings page (default: skill first, then workload).
+     * Technicians who are at the workload limit are left out.
+     */
     @Transactional
     public Technician autoAssignIncident(Long incidentId) {
         Incident incident = getAssignableIncident(incidentId);
         List<Technician> technicians = technicianRepository.findByActiveTrue();
-        Technician selected = skillBasedAssignment.assign(incident, technicians);
-        if (selected == null) selected = leastLoadedAssignment.assign(incident, technicians);
-        if (selected == null) throw new IncidentAssignmentException("No active technician available");
-        return persistAssignment(incident, selected, "AUTOMATIC_SKILL_THEN_WORKLOAD");
+        List<Technician> withRoom = technicians.stream().filter(this::hasRoom).toList();
+        AssignmentPolicy policy = currentPolicy();
+        AssignmentStrategy strategy = strategyFor(policy);
+        Technician selected = strategy.assign(incident, withRoom);
+        if (selected == null) {
+            // Would someone have been chosen without the limit? Then the real reason is the workload.
+            if (!technicians.isEmpty() && strategy.assign(incident, technicians) != null)
+                throw new TechnicianWorkloadExceededException("every suitable technician already has " + incidents(workloadLimit())
+                        + " or more (the workload limit)");
+            throw new IncidentAssignmentException(policy == AssignmentPolicy.SKILL_ONLY
+                    ? "No active technician has the skill " + incident.getCategory()
+                    : "No active technician available");
+        }
+        return persistAssignment(incident, selected, "AUTOMATIC_" + policy.name());
     }
 
     /** Admin-only override entry point; caller authorization is enforced by SecurityConfig. */
@@ -87,6 +152,8 @@ public class AssignmentService {
         Technician selected = technicianRepository.findById(technicianId)
                 .filter(Technician::isActive)
                 .orElseThrow(() -> new IllegalArgumentException("Active technician not found: " + technicianId));
+        boolean alreadyTheirs = incident.getAssignedTechnician() != null && incident.getAssignedTechnician().getId().equals(selected.getId());
+        if (!alreadyTheirs) checkHasRoom(selected);
         if (delegationRepository != null) {
             for (DelegationRequest pending : delegationRepository.findByIncidentIdAndStatus(incidentId, DelegationRequest.PENDING)) {
                 pending.setStatus(DelegationRequest.CANCELLED);
@@ -123,6 +190,7 @@ public class AssignmentService {
                 .filter(Technician::isActive)
                 .orElseThrow(() -> new IllegalArgumentException("Active target technician not found: " + targetTechnicianId));
         if (target.getId().equals(current.getId())) throw new IllegalArgumentException("Choose another technician");
+        checkHasRoom(target);
         if (delegationRepository.existsByIncidentIdAndStatus(incidentId, DelegationRequest.PENDING))
             throw new IncidentAssignmentException("A delegation request for this incident is already waiting for admin approval");
 
@@ -158,6 +226,7 @@ public class AssignmentService {
         Technician target = technicianRepository.findById(request.getToTechnician().getId())
                 .filter(Technician::isActive)
                 .orElseThrow(() -> new IllegalArgumentException("The target technician is no longer active. Reject this request or use Override assignment"));
+        checkHasRoom(target); // the request stays pending, so the admin can reject it or raise the limit
 
         persistAssignment(incident, target, "DELEGATION_APPROVED");
         close(request, DelegationRequest.APPROVED);

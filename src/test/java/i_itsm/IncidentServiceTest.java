@@ -161,4 +161,20 @@ class IncidentServiceTest {
         assertNull(incident.getResolutionNotes());
         assertEquals(3, ravi.getActiveIncidentCount());
     }
+    @Test
+    void openIncidentCannotBeClosedDirectly() {
+        loginAs("technician", "TECHNICIAN");
+        incident("OPEN", ravi);
+        assertThrows(IllegalStateException.class, () -> incidentService.updateStatus(5L, "CLOSED", null));
+        verify(incidentRepository, never()).save(any());
+    }
+
+    @Test
+    void inProgressIncidentCannotJumpBackToOpen() {
+        loginAs("technician", "TECHNICIAN");
+        incident("IN_PROGRESS", ravi);
+        assertThrows(IllegalStateException.class, () -> incidentService.updateStatus(5L, "OPEN", null));
+        verify(incidentRepository, never()).save(any());
+    }
+
 }

@@ -40,6 +40,10 @@ public class SLAController {
         result.put("priority", incident.getPriority());
         result.put("slaDeadline", incident.getSlaDeadline());
         result.put("slaViolated", violated);
+        result.put("responseDeadline", incident.getResponseDeadline());
+        result.put("firstResponseAt", incident.getFirstResponseAt());
+        result.put("responseSlaViolated", incident.isResponseSlaViolated());
+        result.put("slaRiskLevel", incident.getSlaRiskLevel());
 
         return result;
     }
